@@ -38,3 +38,5 @@ If you want HTML Reports after Tests' Execution, then run the following command 
 To generate xml results, run the following command : `pytest Tests --junitxml="result.xml"`
 
 For more on Pytest, go [here.](https://docs.pytest.org/en/stable/)
+
+![alt-text](https://github.com/arbaaz100/python-api-test-framework/blob/main/Screenshot%20from%202022-03-22%2022-40-53.png)
