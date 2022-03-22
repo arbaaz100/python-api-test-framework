@@ -1,0 +1,14 @@
+{ "primary user" : {
+  "email": "arbaaz.khan@mail-xyz.com",
+  "gender": "male",
+  "name": "Arbaaz XYZ Khan",
+  "status": "inactive"
+}, "updated user" : {
+  "email": "updated.khan@mail-xyz.com",
+  "gender": "female",
+  "name": "XYZ Khan",
+  "status": "active"
+},
+  "Authentication Token" : "20f65ef85a47bdade351c3b9973bdfc8cda70153cc778d50cd9218e71db7f536",
+  "Wrong Authentication Token" : "12ef5ef853df6asqw543e3r6773bdfc6hda67343cc885g50cd5623g71db7w156"
+}
