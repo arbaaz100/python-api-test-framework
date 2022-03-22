@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) { // eslint-disable-line no-redeclare
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function findAll(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sortColumn(elem) {
+    toggleSortStates(elem);
+    const colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    let key;
+    if (elem.classList.contains('result')) {
+        key = keyResult;
+    } else if (elem.classList.contains('links')) {
+        key = keyLink;
+    } else {
+        key = keyAlpha;
+    }
+    sortTable(elem, key(colIndex));
+}
+
+function showAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(showExtras);
+}
+
+function hideAllExtras() { // eslint-disable-line no-unused-vars
+    findAll('.col-result').forEach(hideExtras);
+}
+
+function showExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.remove('collapsed');
+    expandcollapse.classList.remove('expander');
+    expandcollapse.classList.add('collapser');
+}
+
+function hideExtras(colresultElem) {
+    const extras = colresultElem.parentNode.nextElementSibling;
+    const expandcollapse = colresultElem.firstElementChild;
+    extras.classList.add('collapsed');
+    expandcollapse.classList.remove('collapser');
+    expandcollapse.classList.add('expander');
+}
+
+function showFilters() {
+    const filterItems = document.getElementsByClassName('filter');
+    for (let i = 0; i < filterItems.length; i++)
+        filterItems[i].hidden = false;
+}
+
+function addCollapse() {
+    // Add links for show/hide all
+    const resulttable = find('table#results-table');
+    const showhideall = document.createElement('p');
+    showhideall.innerHTML = '<a href="javascript:showAllExtras()">Show all details</a> / ' +
+                            '<a href="javascript:hideAllExtras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    findAll('.col-result').forEach(function(elem) {
+        const collapsed = getQueryParameter('collapsed') || 'Passed';
+        const extras = elem.parentNode.nextElementSibling;
+        const expandcollapse = document.createElement('span');
+        if (extras.classList.contains('collapsed')) {
+            expandcollapse.classList.add('expander');
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add('collapsed');
+            expandcollapse.classList.add('expander');
+        } else {
+            expandcollapse.classList.add('collapser');
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener('click', function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains('collapsed')) {
+                showExtras(event.currentTarget);
+            } else {
+                hideExtras(event.currentTarget);
+            }
+        });
+    });
+}
+
+function getQueryParameter(name) {
+    const match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () { // eslint-disable-line no-unused-vars
+    resetSortHeaders();
+
+    addCollapse();
+
+    showFilters();
+
+    sortColumn(find('.initial-sort'));
+
+    findAll('.sortable').forEach(function(elem) {
+        elem.addEventListener('click',
+            function() {
+                sortColumn(elem);
+            }, false);
+    });
+}
+
+function sortTable(clicked, keyFunc) {
+    const rows = findAll('.results-table-row');
+    const reversed = !clicked.classList.contains('asc');
+    const sortedRows = sort(rows, keyFunc, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    const thead = document.getElementById('results-table-head');
+    document.getElementById('results-table').remove();
+    const parent = document.createElement('table');
+    parent.id = 'results-table';
+    parent.appendChild(thead);
+    sortedRows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName('BODY')[0].appendChild(parent);
+}
+
+function sort(items, keyFunc, reversed) {
+    const sortArray = items.map(function(item, i) {
+        return [keyFunc(item), i];
+    });
+
+    sortArray.sort(function(a, b) {
+        const keyA = a[0];
+        const keyB = b[0];
+
+        if (keyA == keyB) return 0;
+
+        if (reversed) {
+            return keyA < keyB ? 1 : -1;
+        } else {
+            return keyA > keyB ? 1 : -1;
+        }
+    });
+
+    return sortArray.map(function(item) {
+        const index = item[1];
+        return items[index];
+    });
+}
+
+function keyAlpha(colIndex) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[colIndex].firstChild.data.toLowerCase();
+    };
+}
+
+function keyLink(colIndex) {
+    return function(elem) {
+        const dataCell = elem.childNodes[1].childNodes[colIndex].firstChild;
+        return dataCell == null ? '' : dataCell.innerText.toLowerCase();
+    };
+}
+
+function keyResult(colIndex) {
+    return function(elem) {
+        const strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+            'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[colIndex].firstChild.data);
+    };
+}
+
+function resetSortHeaders() {
+    findAll('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    findAll('.sortable').forEach(function(elem) {
+        const icon = document.createElement('div');
+        icon.className = 'sort-icon';
+        icon.textContent = 'vvv';
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove('desc', 'active');
+        elem.classList.add('asc', 'inactive');
+    });
+}
+
+function toggleSortStates(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        resetSortHeaders();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function isAllRowsHidden(value) {
+    return value.hidden == false;
+}
+
+function filterTable(elem) { // eslint-disable-line no-unused-vars
+    const outcomeAtt = 'data-test-result';
+    const outcome = elem.getAttribute(outcomeAtt);
+    const classOutcome = outcome + ' results-table-row';
+    const outcomeRows = document.getElementsByClassName(classOutcome);
+
+    for(let i = 0; i < outcomeRows.length; i++){
+        outcomeRows[i].hidden = !elem.checked;
+    }
+
+    const rows = findAll('.results-table-row').filter(isAllRowsHidden);
+    const allRowsHidden = rows.length == 0 ? true : false;
+    const notFoundMessage = document.getElementById('not-found-message');
+    notFoundMessage.hidden = !allRowsHidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 22-Mar-2022 at 21:25:35 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v3.1.1</p>
+    <h2>Summary</h2>
+    <p>8 tests ran in 4.05 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="passed">8 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="failed">0 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filterTable(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable" col="duration">Duration</th>
+          <th class="sortable links" col="links">Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_negative.py::test_delete_user_with_incorrect_auth</td>
+          <td class="col-duration">0.41</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 401, &#x27;meta&#x27;: None, &#x27;data&#x27;: {&#x27;message&#x27;: &#x27;Authentication failed&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_negative.py::test_delete_non_existent_user</td>
+          <td class="col-duration">0.65</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 404, &#x27;meta&#x27;: None, &#x27;data&#x27;: {&#x27;message&#x27;: &#x27;Resource not found&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_users.py::test_get_all_users</td>
+          <td class="col-duration">0.51</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 200, &#x27;meta&#x27;: {&#x27;pagination&#x27;: {&#x27;total&#x27;: 3918, &#x27;pages&#x27;: 196, &#x27;page&#x27;: 1, &#x27;limit&#x27;: 20}}, &#x27;data&#x27;: [{&#x27;id&#x27;: 4060, &#x27;name&#x27;: &#x27;Dwaipayan Jha&#x27;, &#x27;email&#x27;: &#x27;jha_dwaipayan@brown.name&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4059, &#x27;name&#x27;: &#x27;Chaturaanan Joshi&#x27;, &#x27;email&#x27;: &#x27;joshi_chaturaanan@murazik.io&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4058, &#x27;name&#x27;: &#x27;Birjesh Reddy&#x27;, &#x27;email&#x27;: &#x27;birjesh_reddy@moore.io&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4057, &#x27;name&#x27;: &#x27;Anasooya Agarwal V&#x27;, &#x27;email&#x27;: &#x27;anasooya_v_agarwal@homenick.biz&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4056, &#x27;name&#x27;: &#x27;Kiran Iyengar&#x27;, &#x27;email&#x27;: &#x27;kiran_iyengar@abbott-oconner.biz&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4055, &#x27;name&#x27;: &#x27;Jagdish Saini&#x27;, &#x27;email&#x27;: &#x27;jagdish_saini@smith.biz&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4053, &#x27;name&#x27;: &#x27;Poornima Bhattathiri IV&#x27;, &#x27;email&#x27;: &#x27;bhattathiri_iv_poornima@barrows.com&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4052, &#x27;name&#x27;: &#x27;Laal Malik&#x27;, &#x27;email&#x27;: &#x27;laal_malik@bernhard-miller.info&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4051, &#x27;name&#x27;: &#x27;Deepan Varrier&#x27;, &#x27;email&#x27;: &#x27;varrier_deepan@wolf-west.name&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4050, &#x27;name&#x27;: &#x27;Kanti Ganaka&#x27;, &#x27;email&#x27;: &#x27;ganaka_kanti@marvin.name&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4049, &#x27;name&#x27;: &#x27;Gopaal Singh&#x27;, &#x27;email&#x27;: &#x27;singh_gopaal@runolfsson-schowalter.name&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4048, &#x27;name&#x27;: &#x27;Mani Kapoor&#x27;, &#x27;email&#x27;: &#x27;mani_kapoor@prosacco.biz&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4047, &#x27;name&#x27;: &#x27;Miss Triloki Nath Ahluwalia&#x27;, &#x27;email&#x27;: &#x27;ahluwalia_triloki_nath_miss@shields-lynch.name&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4046, &#x27;name&#x27;: &#x27;Rep. Rukhmani Guha&#x27;, &#x27;email&#x27;: &#x27;rukhmani_rep_guha@marks.com&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4044, &#x27;name&#x27;: &#x27;Darshan Ganaka&#x27;, &#x27;email&#x27;: &#x27;darshan_ganaka@robel-lang.biz&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4042, &#x27;name&#x27;: &#x27;Lakshman Guneta&#x27;, &#x27;email&#x27;: &#x27;guneta_lakshman@hickle.io&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4041, &#x27;name&#x27;: &#x27;Purushottam Guha CPA&#x27;, &#x27;email&#x27;: &#x27;cpa_guha_purushottam@schaden-torphy.info&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4040, &#x27;name&#x27;: &#x27;Balaaditya Verma&#x27;, &#x27;email&#x27;: &#x27;balaaditya_verma@batz-brakus.co&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}, {&#x27;id&#x27;: 4039, &#x27;name&#x27;: &#x27;Dhara Kakkar&#x27;, &#x27;email&#x27;: &#x27;dhara_kakkar@nicolas.name&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;}, {&#x27;id&#x27;: 4038, &#x27;name&#x27;: &#x27;Bela Pandey III&#x27;, &#x27;email&#x27;: &#x27;bela_pandey_iii@kshlerin-schaefer.net&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}]}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_users.py::test_create_user_and_get_user_id</td>
+          <td class="col-duration">0.43</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 201, &#x27;meta&#x27;: None, &#x27;data&#x27;: {&#x27;id&#x27;: 18573, &#x27;name&#x27;: &#x27;Arbaaz XYZ Khan&#x27;, &#x27;email&#x27;: &#x27;arbaaz.khan@mail-xyz.com&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_users.py::test_get_user_data</td>
+          <td class="col-duration">0.39</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 200, &#x27;meta&#x27;: None, &#x27;data&#x27;: {&#x27;id&#x27;: 18573, &#x27;name&#x27;: &#x27;Arbaaz XYZ Khan&#x27;, &#x27;email&#x27;: &#x27;arbaaz.khan@mail-xyz.com&#x27;, &#x27;gender&#x27;: &#x27;male&#x27;, &#x27;status&#x27;: &#x27;inactive&#x27;}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_users.py::test_put_user_data</td>
+          <td class="col-duration">0.27</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>https://gorest.co.in//public-api/users/18573?access-token=20f65ef85a47bdade351c3b9973bdfc8cda70153cc778d50cd9218e71db7f536
+{&#x27;code&#x27;: 200, &#x27;meta&#x27;: None, &#x27;data&#x27;: {&#x27;email&#x27;: &#x27;updated.khan@mail-xyz.com&#x27;, &#x27;name&#x27;: &#x27;XYZ Khan&#x27;, &#x27;gender&#x27;: &#x27;female&#x27;, &#x27;status&#x27;: &#x27;active&#x27;, &#x27;id&#x27;: 18573}}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_users.py::test_delete_user</td>
+          <td class="col-duration">0.70</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 204, &#x27;meta&#x27;: None, &#x27;data&#x27;: None}
+<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">Tests/test_users.py::test_validate_user_has_been_deleted</td>
+          <td class="col-duration">0.52</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>{&#x27;code&#x27;: 404, &#x27;meta&#x27;: None, &#x27;data&#x27;: {&#x27;message&#x27;: &#x27;Resource not found&#x27;}}
+<br/></div></td></tr></tbody></table></body></html>
